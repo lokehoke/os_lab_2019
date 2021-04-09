@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "*.json": "json",
+        "ctype.h": "c",
+        "time.h": "c",
+        "getopt.h": "c",
+        "features.h": "c",
+        "getopt_core.h": "c",
+        "random": "c"
+    }
+}
