@@ -1,3 +1,5 @@
+#define _POSIX_SOURCE
+
 #include <ctype.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -5,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include <sys/time.h>
 #include <sys/types.h>
@@ -15,11 +18,20 @@
 #include "find_min_max.h"
 #include "utils.h"
 
+void timeoutHandler() {
+	printf("Timeout!\n");
+	kill(0, SIGKILL);
+	wait(NULL);
+	exit(1);
+}
+
+
 int main(int argc, char **argv) {
     int seed = -1;
     int array_size = -1;
     int pnum = -1;
     bool with_files = false;
+    int timeout = -1;
 
     while (true) {
         int current_optind = optind ? optind : 1;
@@ -28,73 +40,68 @@ int main(int argc, char **argv) {
                                         {"array_size", required_argument, 0, 0},
                                         {"pnum", required_argument, 0, 0},
                                         {"by_files", no_argument, 0, 'f'},
+                                        {"timeout", required_argument, 0, 0},
                                         {0, 0, 0, 0}};
 
         int option_index = 0;
         int c = getopt_long(argc, argv, "f", options, &option_index);
 
-        if (c == -1) break;
+        if (c == -1) {
+            break;
+        }
 
         switch (c) {
-            case 0:
+            case 0: {
                 switch (option_index) {
-                    case 0:
+                    case 0: {
                         seed = atoi(optarg);
-
-                        if(seed<=0) {
+                        if(seed <= 0) {
                             printf("seed is a positive number\n");
                             return 1;
                         }
-
                         break;
-                    case 1:
-                    array_size = atoi(optarg);
-
-                    if (array_size <= 0) {
-                        printf("array_size is a positive number\n");
-                        return 1;
-                    }
-
-                    break;
-                    case 2:
+                    } case 1: {
+                        array_size = atoi(optarg);
+                        if (array_size <= 0) {
+                            printf("array_size is a positive number\n");
+                            return 1;
+                        }
+                        break;
+                    } case 2: {
                         pnum = atoi(optarg);
-
                         if(pnum<=0) {
                             printf("pnum is a positive number\n");
                             return 1;
                         }
                         break;
-
-                    case 3:
+                    } case 3: {
                         with_files = true;
                         break;
-
-                    default:
+                    } case 4: {
+							timeout = atoi(optarg);
+							if(timeout < 0) {
+								printf("Timeout must be a positive number, measured in seconds. Now timeout is set to %d seconds\n", timeout);
+								return -1;
+							}
+							break;
+                    } default: {
                         printf("Index %d is out of options\n", option_index);
+                    }
                 }
-            break;
-            case 'f':
+                break;
+            } case 'f': {
                 with_files = true;
                 break;
-
-            case '?':
+            } case '?': {
                 break;
-
-            default:
+            } default: {
                 printf("getopt returned character code 0%o?\n", c);
+            }
         }
     }
 
-    if (optind < argc) {
-        printf("Has at least one no option argument\n");
-        return 1;
-    }
-
-    if (seed == -1 || array_size == -1 || pnum == -1) {
-        printf("Usage: %s --seed \"num\" --array_size \"num\" --pnum \"num\" \n",
-            argv[0]);
-        return 1;
-    }
+    signal(SIGALRM, timeoutHandler);
+	alarm(timeout);
 
     int *array = (int*)malloc(sizeof(int) * array_size);
     GenerateArray(array, array_size, seed);
@@ -201,6 +208,8 @@ int main(int argc, char **argv) {
     } else {
         free(pipefd);
     }
+
+    alarm(0);
 
     struct timeval finish_time;
     gettimeofday(&finish_time, NULL);
